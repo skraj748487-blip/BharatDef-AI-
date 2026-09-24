@@ -10,6 +10,7 @@ from datetime import datetime
 # Dedicated with love to: ZOYA
 
 COMMON_PORTS = [21, 22, 25, 53, 80, 110, 143, 443, 3306, 8080, 8443]
+COMMON_SUBDOMAINS = ["api", "admin", "dev", "staging", "mail", "vpn", "portal", "test", "auth", "secure"]
 
 def get_api_key():
     key = os.environ.get("GEMINI_API_KEY")
@@ -33,6 +34,19 @@ def scan_ports(host_ip):
         s.close()
     return open_ports
 
+def discover_subdomains(target_domain):
+    print(f"\n[*] Subdomain Discovery shuru ho rahi hai ({target_domain})...")
+    discovered = []
+    for sub in COMMON_SUBDOMAINS:
+        sub_host = f"{sub}.{target_domain}"
+        try:
+            sub_ip = socket.gethostbyname(sub_host)
+            discovered.append({"subdomain": sub_host, "ip": sub_ip})
+            print(f"  [+] Active mila: {sub_host} -> {sub_ip}")
+        except socket.error:
+            pass
+    return discovered
+
 def get_headers_and_ip(domain_clean):
     data = {}
     try:
@@ -50,22 +64,23 @@ def get_headers_and_ip(domain_clean):
         data["server_headers"] = str(e)
     return data
 
-def run_ai_audit(domain, data, open_ports, api_key):
-    print("\n[*] AI Reasoning Engine Audit Report taiyar kar raha hai...")
+def run_ai_audit(domain, data, open_ports, subdomains, api_key):
+    print("\n[*] AI Reasoning Engine Enterprise Audit taiyar kar raha hai...")
     
     prompt = f"""
     You are BharatDef-AI, an enterprise defensive security reasoning engine.
     Target: {domain}
-    Resolved IP: {data.get('ip_address')}
+    Resolved Root IP: {data.get('ip_address')}
     Open Exposed Ports: {open_ports}
+    Discovered Active Subdomains: {json.dumps(subdomains, indent=2)}
     HTTP Status: {data.get('http_status')}
     Response Headers: {json.dumps(data.get('server_headers'), indent=2)}
 
     Generate a formal executive defensive audit containing:
-    1. Attack Surface Assessment (analyze exposed ports and exposed tech).
-    2. Missing Defensive Headers & Risks.
-    3. Exposure Severity Score (0-10).
-    4. Actionable Remediation Roadmap.
+    1. Attack Surface Assessment (analyze exposed ports, tech stack, and discovered subdomains).
+    2. Missing Defensive Headers & Security Architecture Gaps.
+    3. Exposure Severity Score (0-10) with technical rationale.
+    4. Actionable Remediation Roadmap for engineering teams.
     """
 
     endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={api_key}"
@@ -86,7 +101,8 @@ def run_ai_audit(domain, data, open_ports, api_key):
                 f.write(f"\nGenerated At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write(f"Target: {domain}\n")
                 f.write(f"Resolved IP: {data.get('ip_address')}\n")
-                f.write(f"Open Ports: {open_ports}\n\n")
+                f.write(f"Open Ports: {open_ports}\n")
+                f.write(f"Discovered Subdomains: {json.dumps(subdomains, indent=2)}\n\n")
                 f.write(report)
             print(f"\n[+] Audit Report Save Ho Gayi: {filename}")
         else:
@@ -102,7 +118,7 @@ def list_reports():
     print("\n--- Saved Audit Reports ---")
     for i, r in enumerate(reports, 1):
         print(f"[{i}] {r}")
-    choice = input("\nReport number choose karein padhne ke liye (ya Enter dabayein wapas jane ke liye): ").strip()
+    choice = input("\nReport number choose karein (ya Enter dabayein wapas jane ke liye): ").strip()
     if choice.isdigit() and 1 <= int(choice) <= len(reports):
         with open(reports[int(choice) - 1], "r", encoding="utf-8") as f:
             print("\n" + f.read())
@@ -119,17 +135,18 @@ def main_menu():
         print("=======================================================")
         print("[1] Quick Web Audit (DNS + HTTP Headers + AI Report)")
         print("[2] Full Defense Scan (DNS + Port Recon + Headers + AI)")
-        print("[3] View Saved Audit Reports")
-        print("[4] Exit")
+        print("[3] Deep Perimeter Audit (Ports + Subdomains + AI Report)")
+        print("[4] View Saved Audit Reports")
+        print("[5] Exit")
         
-        choice = input("\nOption chunein (1-4): ").strip()
+        choice = input("\nOption chunein (1-5): ").strip()
 
         if choice == "1":
             target = input("\nEnter Target Domain (e.g. example.com): ").strip()
             if target:
                 clean = clean_target(target)
                 data = get_headers_and_ip(clean)
-                run_ai_audit(clean, data, "Not Scanned (Quick Mode)", api_key)
+                run_ai_audit(clean, data, "Not Scanned (Quick Mode)", [], api_key)
         elif choice == "2":
             target = input("\nEnter Target Domain (e.g. scanme.nmap.org): ").strip()
             if target:
@@ -138,14 +155,24 @@ def main_menu():
                 open_ports = []
                 if "DNS Error" not in data["ip_address"]:
                     open_ports = scan_ports(data["ip_address"])
-                run_ai_audit(clean, data, open_ports, api_key)
+                run_ai_audit(clean, data, open_ports, [], api_key)
         elif choice == "3":
-            list_reports()
+            target = input("\nEnter Target Domain (e.g. github.com): ").strip()
+            if target:
+                clean = clean_target(target)
+                data = get_headers_and_ip(clean)
+                open_ports = []
+                if "DNS Error" not in data["ip_address"]:
+                    open_ports = scan_ports(data["ip_address"])
+                subs = discover_subdomains(clean)
+                run_ai_audit(clean, data, open_ports, subs, api_key)
         elif choice == "4":
+            list_reports()
+        elif choice == "5":
             print("\nExiting BharatDef-AI. Jai Hind!\n")
             break
         else:
-            print("\n[!] Galat option, kripya 1 se 4 ke beech chunein.")
+            print("\n[!] Galat option, kripya 1 se 5 ke beech chunein.")
 
 if __name__ == "__main__":
     main_menu()
